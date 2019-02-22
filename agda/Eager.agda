@@ -67,20 +67,20 @@ data value : tm → Set where
   v-abs  : (vn : id) → (T : Ty) → (body : tm) → value (tm-abs vn T body)
 
 data _⟹_ : tm → tm → Set where
-  st-abs  : forall v x t T →
+  st-abs  : ∀ v x t T →
             value v        →   -- eager
             tm-app (tm-abs x T t) v ⟹ ⟦ v / x ⟧ t
-  st-app₁ : forall t₁ t₁' t₂ →
+  st-app₁ : ∀ t₁ t₁' t₂ →
             t₁ ⟹ t₁'       →
             tm-app t₁ t₂ ⟹ tm-app t₁' t₂
-  st-app₂ : forall t₁ t₂ t₂' →
+  st-app₂ : ∀ t₁ t₂ t₂' →
             t₂ ⟹ t₂'       →
             tm-app t₁ t₂ ⟹ tm-app t₁ t₂'
-  st-then : forall t₂ t₃ →
+  st-then : ∀ t₂ t₃ →
             tm-if (tm-bool true)  t₂ t₃ ⟹ t₂
-  st-else : forall t₂ t₃ →
+  st-else : ∀ t₂ t₃ →
             tm-if (tm-bool false) t₂ t₃ ⟹ t₃
-  st-if   : forall t₁ t₁' t₂ t₃ →
+  st-if   : ∀ t₁ t₁' t₂ t₃ →
             t₁ ⟹ t₁'          →
             tm-if t₁ t₂ t₃ ⟹ tm-if t₁' t₂ t₃
 
@@ -90,11 +90,11 @@ data _⟹_ : tm → tm → Set where
 pm : Set → Set
 pm A = id → Maybe A
 
-empty : forall {A} → pm A
+empty : ∀ {A} → pm A
 empty  _ = nothing
 
 -- extend
-extend : forall {A} → pm A → id → A → pm A
+extend : ∀ {A} → pm A → id → A → pm A
 extend Γ x T y with y ≟ x
 ...  | yes _ = just T
 ...  | no  _ = Γ y
@@ -119,21 +119,21 @@ extend-neq Γ x T y ne with y ≟ x
 
 -- has-type
 data _⊢_∶_ : pm Ty → tm → Ty → Set where
-  ht-nat   : forall Γ n →
+  ht-nat   : ∀ Γ n →
              Γ ⊢ tm-nat n ∶ ty-nat
-  ht-bool  : forall Γ b →
+  ht-bool  : ∀ Γ b →
              Γ ⊢ tm-bool b ∶ ty-bool
-  ht-var   : forall Γ x T →
+  ht-var   : ∀ Γ x T →
               Γ x ≡ just T →
               Γ ⊢ tm-var x ∶ T
-  ht-abs   : forall Γ x U T t →
+  ht-abs   : ∀ Γ x U T t →
              extend Γ x U ⊢ t ∶ T →
              Γ ⊢ tm-abs x U t ∶ (U ⟶ T)
-  ht-app   : forall Γ T₁₁ T₁₂ t₁ t₂ →
+  ht-app   : ∀ Γ T₁₁ T₁₂ t₁ t₂ →
              Γ ⊢ t₁  ∶ (T₁₁ ⟶ T₁₂) →
              Γ ⊢ t₂  ∶ T₁₁           →
              Γ ⊢ tm-app t₁ t₂ ∶ T₁₂
-  ht-if    : forall Γ T t₁ t₂ t₃ →
+  ht-if    : ∀ Γ T t₁ t₂ t₃ →
              Γ ⊢ t₁ ∶ ty-bool    →
              Γ ⊢ t₂ ∶ T          →
              Γ ⊢ t₃ ∶ T          →
@@ -149,32 +149,32 @@ typing-example-1 =
   (ht-var (extend empty var-a ty-bool) var-a ty-bool (extend-eq empty var-a ty-bool))
 
 data appears-free-in : id → tm → Set where
-  afi-var  : forall x →
+  afi-var  : ∀ x →
              appears-free-in x (tm-var x)
-  afi-app₁ : forall x t₁ t₂ →
+  afi-app₁ : ∀ x t₁ t₂ →
              appears-free-in x t₁ →
              appears-free-in x (tm-app t₁ t₂)
-  afi-app₂ : forall x t₁ t₂ →
+  afi-app₂ : ∀ x t₁ t₂ →
              appears-free-in x t₂ →
              appears-free-in x (tm-app t₁ t₂)
-  afi-abs  : forall x y T₁₁ t₁₂ →
+  afi-abs  : ∀ x y T₁₁ t₁₂ →
              x ≢ y →
              appears-free-in x t₁₂ →
              appears-free-in x (tm-abs y T₁₁ t₁₂)
-  afi-if   : forall x t₁ t₂ t₃ →
+  afi-if   : ∀ x t₁ t₂ t₃ →
              appears-free-in x t₁ →
              appears-free-in x (tm-if t₁ t₂ t₃)
-  afi-then : forall x t₁ t₂ t₃ →
+  afi-then : ∀ x t₁ t₂ t₃ →
              appears-free-in x t₂ →
              appears-free-in x (tm-if t₁ t₂ t₃)
-  afi-else : forall x t₁ t₂ t₃ →
+  afi-else : ∀ x t₁ t₂ t₃ →
              appears-free-in x t₃ →
              appears-free-in x (tm-if t₁ t₂ t₃)
 
 closed : tm → Set
-closed t = forall x → ¬ appears-free-in x t
+closed t = ∀ x → ¬ appears-free-in x t
 
-free-in-context : forall x t T Γ     →
+free-in-context : ∀ x t T Γ     →
                   appears-free-in x t →
                   Γ ⊢ t ∶ T          →
                   (∃[ T' ] (Γ x ≡ just T'))
@@ -195,7 +195,7 @@ free-in-context x .(tm-if t₁ t₂ t₃)   T            Γ (afi-else .x t₁ t�
 
 -- corollary
 typable-empty-closed :
-  forall t T    →
+  ∀ t T    →
   empty ⊢ t ∶ T →
   closed t
 typable-empty-closed t T ht x afi with free-in-context x t T empty afi ht
