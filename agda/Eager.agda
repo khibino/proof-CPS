@@ -129,10 +129,10 @@ data _⊢_∶_ : pm Ty → tm → Ty → Set where
   ht-abs   : ∀ Γ x U T t →
              extend Γ x U ⊢ t ∶ T →
              Γ ⊢ tm-abs x U t ∶ (U ⟶ T)
-  ht-app   : ∀ Γ T₁₁ T₁₂ t₁ t₂ →
-             Γ ⊢ t₁  ∶ (T₁₁ ⟶ T₁₂) →
-             Γ ⊢ t₂  ∶ T₁₁           →
-             Γ ⊢ tm-app t₁ t₂ ∶ T₁₂
+  ht-app   : ∀ Γ S T t₁ t₂ →
+             Γ ⊢ t₁  ∶ (S ⟶ T) →
+             Γ ⊢ t₂  ∶ S           →
+             Γ ⊢ tm-app t₁ t₂ ∶ T
   ht-if    : ∀ Γ T t₁ t₂ t₃ →
              Γ ⊢ t₁ ∶ ty-bool    →
              Γ ⊢ t₂ ∶ T          →
@@ -184,8 +184,8 @@ free-in-context x .(tm-app t₁ t₂)     T            Γ (afi-app₁ .x t₁ t�
   =  free-in-context x t₁  (T₁₁ ⟶ T) Γ fi htₐ
 free-in-context x .(tm-app t₁ t₂)     T            Γ (afi-app₂ .x t₁ t₂ fi)        (ht-app .Γ T₁₁ .T .t₁ .t₂ htₐ ht₂)
   =  free-in-context x t₂  T₁₁         Γ fi ht₂
-free-in-context x .(tm-abs y T₁₁ t₁₂) .(T₁₁ ⟶ T) Γ (afi-abs .x y T₁₁ t₁₂ ¬eq fi) (ht-abs .Γ .y .T₁₁ T .t₁₂ ht) rewrite E.sym (extend-neq Γ y T₁₁ x ¬eq)
-  =  free-in-context x t₁₂ T           (extend Γ y T₁₁) fi ht
+free-in-context x .(tm-abs y S t)     .(S ⟶ T)   Γ (afi-abs .x y S t ¬eq fi)     (ht-abs .Γ .y .S T .t ht) rewrite E.sym (extend-neq Γ y S x ¬eq)
+  =  free-in-context x t T             (extend Γ y S) fi ht
 free-in-context x .(tm-if t₁ t₂ t₃)   T            Γ (afi-if .x t₁ t₂ t₃ fi)      (ht-if .Γ .T .t₁ .t₂ .t₃ ht₁ ht₂ ht₃)
   =  free-in-context x t₁  ty-bool     Γ fi ht₁
 free-in-context x .(tm-if t₁ t₂ t₃)   T            Γ (afi-then .x t₁ t₂ t₃ fi)    (ht-if .Γ .T .t₁ .t₂ .t₃ ht₁ ht₂ ht₃)
