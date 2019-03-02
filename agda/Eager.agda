@@ -200,3 +200,33 @@ typable-empty-closed :
   closed t
 typable-empty-closed t T ht x afi with free-in-context x t T empty afi ht
 typable-empty-closed t T ht x afi | _ , ()  --- nothing ≡ just _
+
+context-invariance :
+  ∀ Γ₁ Γ₂ t T →
+  Γ₁ ⊢ t ∶ T →
+  (∀ x → appears-free-in x t → Γ₁ x ≡ Γ₂ x) →
+  Γ₂ ⊢ t ∶ T
+context-invariance Γ₁ Γ₂ .(tm-nat n)  .ty-nat  (ht-nat .Γ₁ n)      _            = ht-nat  Γ₂ n
+context-invariance Γ₁ Γ₂ .(tm-bool b) .ty-bool (ht-bool .Γ₁ b)     _            = ht-bool Γ₂ b
+context-invariance Γ₁ Γ₂ .(tm-var x)  T        (ht-var .Γ₁ x .T e) nfe
+  rewrite (nfe x (afi-var x)) = ht-var  Γ₂ x T e
+context-invariance Γ₁ Γ₂ .(tm-abs x U t) .(U ⟶ T) (ht-abs .Γ₁ x U T t ht) nfe =
+  ht-abs Γ₂ x U T t
+    (context-invariance (extend Γ₁ x U) (extend Γ₂ x U) t T ht ihfe)
+  where
+    ihfe : (y : id) → appears-free-in y t → extend Γ₁ x U y ≡ extend Γ₂ x U y
+    ihfe y yafi with y ≟ x
+    ... | yes p = refl
+    ... | no ¬p = nfe y (afi-abs y x U t ¬p yafi)
+context-invariance Γ₁ Γ₂ .(tm-app t₁ t₂) T (ht-app .Γ₁ S .T t₁ t₂ ht ht₁) nfe   =
+  ht-app Γ₂ S T t₁ t₂
+    (context-invariance Γ₁ Γ₂ t₁ (S ⟶ T) ht (λ x z → nfe x (afi-app₁ x t₁ t₂ z)))
+    (context-invariance Γ₁ Γ₂ t₂ S ht₁ (λ x z → nfe x (afi-app₂ x t₁ t₂ z)))
+context-invariance Γ₁ Γ₂ .(tm-if t₁ t₂ t₃) T (ht-if .Γ₁ .T t₁ t₂ t₃ ht ht₁ ht₂) nfe =
+  ht-if Γ₂ T t₁ t₂ t₃
+    (context-invariance Γ₁ Γ₂ t₁ ty-bool ht
+    (λ x z → nfe x (afi-if x t₁ t₂ t₃ z)))
+    (context-invariance Γ₁ Γ₂ t₂ T ht₁
+    (λ x z → nfe x (afi-then x t₁ t₂ t₃ z)))
+    (context-invariance Γ₁ Γ₂ t₃ T ht₂
+    (λ x z → nfe x (afi-else x t₁ t₂ t₃ z)))
