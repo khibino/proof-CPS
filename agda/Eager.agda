@@ -178,19 +178,19 @@ free-in-context : ∀ x t T Γ     →
                   appears-free-in x t →
                   Γ ⊢ t ∶ T          →
                   (∃[ T' ] (Γ x ≡ just T'))
-free-in-context x .(tm-var x)         T            Γ (afi-var .x)                  (ht-var .Γ .x .T e)
+free-in-context x .(tm-var x)       T           Γ (afi-var .x)              (ht-var .Γ .x .T e)
   =  T , e
-free-in-context x .(tm-app t₁ t₂)     T            Γ (afi-app₁ .x t₁ t₂ fi)        (ht-app .Γ T₁₁ .T .t₁ .t₂ htₐ ht₂)
+free-in-context x .(tm-app t₁ t₂)   T           Γ (afi-app₁ .x t₁ t₂ fi)    (ht-app .Γ T₁₁ .T .t₁ .t₂ htₐ ht₂)
   =  free-in-context x t₁  (T₁₁ ⟶ T) Γ fi htₐ
-free-in-context x .(tm-app t₁ t₂)     T            Γ (afi-app₂ .x t₁ t₂ fi)        (ht-app .Γ T₁₁ .T .t₁ .t₂ htₐ ht₂)
+free-in-context x .(tm-app t₁ t₂)   T           Γ (afi-app₂ .x t₁ t₂ fi)    (ht-app .Γ T₁₁ .T .t₁ .t₂ htₐ ht₂)
   =  free-in-context x t₂  T₁₁         Γ fi ht₂
-free-in-context x .(tm-abs y S t)     .(S ⟶ T)   Γ (afi-abs .x y S t ¬eq fi)     (ht-abs .Γ .y .S T .t ht) rewrite E.sym (extend-neq Γ y S x ¬eq)
+free-in-context x .(tm-abs y S t)    .(S ⟶ T) Γ (afi-abs .x y S t ¬eq fi) (ht-abs .Γ .y .S T .t ht) rewrite E.sym (extend-neq Γ y S x ¬eq)
   =  free-in-context x t T             (extend Γ y S) fi ht
-free-in-context x .(tm-if t₁ t₂ t₃)   T            Γ (afi-if .x t₁ t₂ t₃ fi)      (ht-if .Γ .T .t₁ .t₂ .t₃ ht₁ ht₂ ht₃)
+free-in-context x .(tm-if t₁ t₂ t₃) T           Γ (afi-if .x t₁ t₂ t₃ fi)   (ht-if .Γ .T .t₁ .t₂ .t₃ ht₁ ht₂ ht₃)
   =  free-in-context x t₁  ty-bool     Γ fi ht₁
-free-in-context x .(tm-if t₁ t₂ t₃)   T            Γ (afi-then .x t₁ t₂ t₃ fi)    (ht-if .Γ .T .t₁ .t₂ .t₃ ht₁ ht₂ ht₃)
+free-in-context x .(tm-if t₁ t₂ t₃) T           Γ (afi-then .x t₁ t₂ t₃ fi) (ht-if .Γ .T .t₁ .t₂ .t₃ ht₁ ht₂ ht₃)
   =  free-in-context x t₂  T           Γ fi ht₂
-free-in-context x .(tm-if t₁ t₂ t₃)   T            Γ (afi-else .x t₁ t₂ t₃ fi)    (ht-if .Γ .T .t₁ .t₂ .t₃ ht₁ ht₂ ht₃)
+free-in-context x .(tm-if t₁ t₂ t₃) T           Γ (afi-else .x t₁ t₂ t₃ fi) (ht-if .Γ .T .t₁ .t₂ .t₃ ht₁ ht₂ ht₃)
   =  free-in-context x t₃  T           Γ fi ht₃
 
 -- corollary
