@@ -4,7 +4,7 @@ open import Data.Empty using (⊥-elim)
 open import Data.Product using (_,_; ∃-syntax)
 open import Data.Bool using (Bool; true; false)
 open import Data.Nat using (ℕ; _≟_)
-open import Data.Maybe using (Maybe; just; nothing)
+open import Data.Maybe using (Maybe; just; nothing; just-injective)
 open import Relation.Nullary using (yes; no; ¬_; Dec)
 open import Relation.Binary.PropositionalEquality using (_≡_; refl; _≢_)
 import Relation.Binary.PropositionalEquality as E
@@ -50,10 +50,10 @@ subst-syntax v x = subst
     subst : tm → tm
     subst (tm-nat v)       = tm-nat v
     subst (tm-bool b)      = tm-bool b
-    subst (tm-var x₁) with x ≟ x₁
+    subst (tm-var x₁) with x₁ ≟ x
     ...  | yes p           = v
     ...  | no ¬p           = tm-var x₁
-    subst (tm-abs x₁ T t) with x ≟ x₁
+    subst (tm-abs x₁ T t) with x₁ ≟ x
     ...  | yes p           = tm-abs x₁ T t
     ...  | no ¬p           = tm-abs x₁ T (subst t)
     subst (tm-app t₁ t₂)   = tm-app (subst t₁) (subst t₂)
@@ -83,8 +83,6 @@ data _⟹_ : tm → tm → Set where
   st-if   : ∀ t₁ t₁' t₂ t₃ →
             t₁ ⟹ t₁'          →
             tm-if t₁ t₂ t₃ ⟹ tm-if t₁' t₂ t₃
-
--- step-example-1 : tm-app
 
 -- partial-map type
 pm : Set → Set
@@ -230,3 +228,204 @@ context-invariance Γ₁ Γ₂ .(tm-if t₁ t₂ t₃) T (ht-if .Γ₁ .T t₁ t
     (λ x z → nfe x (afi-then x t₁ t₂ t₃ z)))
     (context-invariance Γ₁ Γ₂ t₃ T ht₂
     (λ x z → nfe x (afi-else x t₁ t₂ t₃ z)))
+
+substitution-preserves-typing :
+  ∀ Γ x U v t T →
+  extend Γ x U ⊢ t ∶ T →
+  empty ⊢ v ∶ U →
+  Γ ⊢ ⟦ v / x ⟧ t ∶ T
+substitution-preserves-typing Γ x U v =
+    preserve Γ
+  where
+    subst-var-eq : ⟦ v / x ⟧ (tm-var x) ≡ v
+    subst-var-eq with x ≟ x
+    ...             | yes eq = refl
+    ...             | no ¬eq with ¬eq refl
+    ...                         | ()
+
+    subst-var-neq : ∀ x₁ → x₁ ≢ x →  ⟦ v / x ⟧ (tm-var x₁) ≡ (tm-var x₁)
+    subst-var-neq x₁ ¬eq with x₁ ≟ x
+    ...                     | no ¬p = refl
+    ...                     | yes p with ¬eq p
+    ...                                | ()
+
+    subst-abs-same : ∀ U₁ t → ⟦ v / x ⟧ (tm-abs x U₁ t) ≡ (tm-abs x U₁ t)
+    subst-abs-same U₁ t with x ≟ x
+    ...                    | yes eq = refl
+    ...                    | no ¬eq with ¬eq refl
+    ...                                | ()
+
+    subst-abs-eq : ∀ x₁ U₁ t → x₁ ≡ x → ⟦ v / x ⟧ (tm-abs x₁ U₁ t) ≡ (tm-abs x₁ U₁ t)
+    subst-abs-eq x₁ U₁ t eq rewrite eq = subst-abs-same U₁ t
+
+    subst-abs-neq : ∀ x₁ U₁ t → x₁ ≢ x → ⟦ v / x ⟧ (tm-abs x₁ U₁ t) ≡ (tm-abs x₁ U₁ (⟦ v / x ⟧ t))
+    subst-abs-neq x₁ U₁ t ¬eq with x₁ ≟ x
+    ...                          | no ¬p = refl
+    ...                          | yes p with ¬eq p
+    ...                                     | ()
+
+    preserve :
+      ∀ Γ t T →
+      extend Γ x U ⊢ t ∶ T →
+      empty ⊢ v ∶ U →
+      Γ ⊢ ⟦ v / x ⟧ t ∶ T
+    preserve Γ .(tm-nat n)       .ty-nat     (ht-nat _ n)            Hv = ht-nat Γ n
+    preserve Γ .(tm-bool b)      .ty-bool    (ht-bool _ b)           Hv = ht-bool Γ b
+    preserve Γ .(tm-var x₁)      .T          (ht-var _ x₁ T mx)      Hv
+      with x₁ ≟ x
+    ...  | yes eq
+      rewrite just-injective mx | eq | subst-var-eq =
+        context-invariance empty Γ v T Hv vclose
+      where
+        vclose : ∀ x₂ → appears-free-in x₂ v → empty x₂ ≡ Γ x₂
+        vclose x₂ contra with free-in-context x₂ v T empty contra Hv
+        vclose x₂ contra    | T₂ , ()
+    ...  | no ¬eq
+      rewrite extend-neq Γ x U x₁ ¬eq | subst-var-neq x₁ ¬eq =
+        ht-var Γ x₁ T mx
+    preserve Γ .(tm-abs x₁ U₁ t) .(U₁ ⟶ T) (ht-abs _ x₁ U₁ T t Ht) Hv
+      with x₁ ≟ x
+    ...  | yes eq
+      rewrite subst-abs-eq x₁ U₁ t eq | eq =
+        ht-abs Γ x U₁ T t (context-invariance (extend (extend Γ x U) x U₁) (extend Γ x U₁) t T Ht fvty)
+      where
+        fvty : ∀ x₂ → appears-free-in x₂ t → extend (extend Γ x U) x U₁ x₂ ≡ extend Γ x U₁ x₂
+        fvty x₂ afi with x₂ ≟ x
+        ...         | yes p rewrite p | extend-eq (extend Γ x U) x U₁                              = refl
+        ...         | no ¬p rewrite extend-neq (extend Γ x U) x U₁ x₂ ¬p | extend-neq Γ x U x₂ ¬p = refl
+    ...  | no ¬eq
+      rewrite subst-abs-neq x₁ U₁ t ¬eq =
+        ht-abs Γ x₁ U₁ T (⟦ v / x ⟧ t)
+          (preserve (extend Γ x₁ U₁) t T
+            (context-invariance (extend (extend Γ x U) x₁ U₁) (extend (extend Γ x₁ U₁) x U) t T Ht fvty)
+            Hv)
+      where
+        fvty : ∀ x₂ → appears-free-in x₂ t → (extend (extend Γ x U) x₁ U₁) x₂ ≡ (extend (extend Γ x₁ U₁) x U) x₂
+        fvty x₂ afi with x₂ ≟ x | x₂ ≟ x₁
+        fvty x₂ afi | yes e0 | yes e1 with ¬eq (E.trans (E.sym e1) e0)
+        ...                              | ()
+        fvty x₂ afi | yes e0 | no ¬e1
+          rewrite
+            extend-neq (extend Γ x U) x₁ U₁ x₂ ¬e1 | e0 | extend-eq Γ x  U  |
+            extend-eq (extend Γ x₁ U₁) x U =
+              refl
+        fvty x₂ afi | no ¬e0 | yes e1
+          rewrite
+            extend-neq (extend Γ x₁ U₁) x U x₂ ¬e0 | e1 | extend-eq Γ x₁ U₁ |
+            extend-eq (extend Γ x U) x₁ U₁ =
+              refl
+        fvty x₂ afi | no ¬e0 | no ¬e1
+          rewrite
+            extend-neq (extend Γ x₁ U₁) x U x₂ ¬e0 |
+            extend-neq Γ x₁ U₁ x₂ ¬e1 |
+            extend-neq (extend Γ x U) x₁ U₁ x₂ ¬e1 |
+            extend-neq Γ x U x₂ ¬e0 =
+              refl
+    preserve Γ .(tm-app t₁ t₂)   .T          (ht-app _ S T t₁ t₂ Ht₁ Ht₂)     Hv
+      = ht-app Γ S T (⟦ v / x ⟧ t₁) (⟦ v / x ⟧ t₂)
+        (preserve Γ t₁ (S ⟶ T) Ht₁ Hv)
+        (preserve Γ t₂  S        Ht₂ Hv)
+    preserve Γ .(tm-if t₁ t₂ t₃) .T          (ht-if _ T t₁ t₂ t₃ Ht₁ Ht₂ Ht₃) Hv
+      = ht-if Γ T (⟦ v / x ⟧ t₁) (⟦ v / x ⟧ t₂) (⟦ v / x ⟧ t₃)
+        (preserve Γ t₁ ty-bool Ht₁ Hv)
+        (preserve Γ t₂ T       Ht₂ Hv)
+        (preserve Γ t₃ T       Ht₃ Hv)
+
+{-
+subst-var-eq : ∀ x v → ⟦ v / x ⟧ (tm-var x) ≡ v
+subst-var-eq x _ with x ≟ x
+...                 | yes eq = refl
+...                 | no ¬eq with ¬eq refl
+...                             | ()
+
+subst-var-neq : ∀ x v x₁ → x₁ ≢ x →  ⟦ v / x ⟧ (tm-var x₁) ≡ (tm-var x₁)
+subst-var-neq x v x₁ ¬eq
+  with x₁ ≟ x
+...  | no ¬p = refl
+...  | yes p with ¬eq p
+...             | ()
+
+subst-abs-same : ∀ v x U₁ t → ⟦ v / x ⟧ (tm-abs x U₁ t) ≡ (tm-abs x U₁ t)
+subst-abs-same v x U₁ t
+  with x ≟ x
+...  | yes eq = refl
+...  | no ¬eq with ¬eq refl
+...              | ()
+
+subst-abs-eq : ∀ v x x₁ U₁ t → x₁ ≡ x → ⟦ v / x ⟧ (tm-abs x₁ U₁ t) ≡ (tm-abs x₁ U₁ t)
+subst-abs-eq v x x₁ U₁ t eq rewrite eq = subst-abs-same v x U₁ t
+
+subst-abs-neq : ∀ v x x₁ U₁ t → x₁ ≢ x → ⟦ v / x ⟧ (tm-abs x₁ U₁ t) ≡ (tm-abs x₁ U₁ (⟦ v / x ⟧ t))
+subst-abs-neq v x x₁ U₁ t ¬eq
+  with x₁ ≟ x
+...  | no ¬p = refl
+...  | yes p with ¬eq p
+...             | ()
+
+substitution-preserves-typing-x :
+  ∀ Γ x U v t T →
+  extend Γ x U ⊢ t ∶ T →
+  empty ⊢ v ∶ U →
+  Γ ⊢ ⟦ v / x ⟧ t ∶ T
+substitution-preserves-typing-x Γ x U v .(tm-nat n)       .ty-nat     (ht-nat _ n)                    Hv = ht-nat Γ n
+substitution-preserves-typing-x Γ x U v .(tm-bool b)      .ty-bool    (ht-bool _ b)                   Hv = ht-bool Γ b
+substitution-preserves-typing-x Γ x U v .(tm-var x₁)      .T          (ht-var _ x₁ T mx)              Hv
+  with x₁ ≟ x
+...  | yes eq
+  rewrite just-injective mx | eq | subst-var-eq x v =
+    context-invariance empty Γ v T Hv vclose
+  where
+    vclose : ∀ x₂ → appears-free-in x₂ v → empty x₂ ≡ Γ x₂
+    vclose x₂ contra with free-in-context x₂ v T empty contra Hv
+    vclose x₂ contra    | T₂ , ()
+...  | no ¬eq
+  rewrite extend-neq Γ x U x₁ ¬eq | subst-var-neq x v x₁ ¬eq =
+    ht-var Γ x₁ T mx
+substitution-preserves-typing-x Γ x U v .(tm-abs x₁ U₁ t) .(U₁ ⟶ T) (ht-abs .(extend Γ x U) x₁ U₁ T t Ht)         Hv
+  with x₁ ≟ x
+...  | yes eq
+  rewrite subst-abs-eq v x x₁ U₁ t eq | eq =
+    ht-abs Γ x U₁ T t (context-invariance (extend (extend Γ x U) x U₁) (extend Γ x U₁) t T Ht fvty)
+  where
+    fvty : ∀ x₂ → appears-free-in x₂ t → extend (extend Γ x U) x U₁ x₂ ≡ extend Γ x U₁ x₂
+    fvty x₂ afi with x₂ ≟ x
+    ...         | yes p rewrite p | extend-eq (extend Γ x U) x U₁                              = refl
+    ...         | no ¬p rewrite extend-neq (extend Γ x U) x U₁ x₂ ¬p | extend-neq Γ x U x₂ ¬p = refl
+...  | no ¬eq
+  rewrite subst-abs-neq v x x₁ U₁ t ¬eq =
+    ht-abs Γ x₁ U₁ T (⟦ v / x ⟧ t)
+      (substitution-preserves-typing-x (extend Γ x₁ U₁) x U v t T
+         (context-invariance (extend (extend Γ x U) x₁ U₁) (extend (extend Γ x₁ U₁) x U) t T Ht fvty)
+         Hv)
+  where
+    fvty : ∀ x₂ → appears-free-in x₂ t → (extend (extend Γ x U) x₁ U₁) x₂ ≡ (extend (extend Γ x₁ U₁) x U) x₂
+    fvty x₂ afi with x₂ ≟ x | x₂ ≟ x₁
+    fvty x₂ afi | yes e0 | yes e1 with ¬eq (E.trans (E.sym e1) e0)
+    ...                              | ()
+    fvty x₂ afi | yes e0 | no ¬e1
+      rewrite
+        extend-neq (extend Γ x U) x₁ U₁ x₂ ¬e1 | e0 | extend-eq Γ x  U  |
+        extend-eq (extend Γ x₁ U₁) x U =
+          refl
+    fvty x₂ afi | no ¬e0 | yes e1
+      rewrite
+        extend-neq (extend Γ x₁ U₁) x U x₂ ¬e0 | e1 | extend-eq Γ x₁ U₁ |
+        extend-eq (extend Γ x U) x₁ U₁ =
+          refl
+    fvty x₂ afi | no ¬e0 | no ¬e1
+      rewrite
+        extend-neq (extend Γ x₁ U₁) x U x₂ ¬e0 |
+        extend-neq Γ x₁ U₁ x₂ ¬e1 |
+        extend-neq (extend Γ x U) x₁ U₁ x₂ ¬e1 |
+        extend-neq Γ x U x₂ ¬e0 =
+          refl
+substitution-preserves-typing-x Γ x U v .(tm-app t₁ t₂)   .T          (ht-app _ S T t₁ t₂ Ht₁ Ht₂)    Hv =
+  ht-app Γ S T (⟦ v / x ⟧ t₁) (⟦ v / x ⟧ t₂)
+  (substitution-preserves-typing-x Γ x U v t₁ (S ⟶ T) Ht₁ Hv)
+  (substitution-preserves-typing-x Γ x U v t₂  S        Ht₂ Hv)
+substitution-preserves-typing-x Γ x U v .(tm-if t₁ t₂ t₃) .T          (ht-if _ T t₁ t₂ t₃ Ht₁ Ht₂ Ht₃) Hv =
+  ht-if Γ T (⟦ v / x ⟧ t₁) (⟦ v / x ⟧ t₂) (⟦ v / x ⟧ t₃)
+  (substitution-preserves-typing-x Γ x U v t₁ ty-bool Ht₁ Hv)
+  (substitution-preserves-typing-x Γ x U v t₂ T       Ht₂ Hv)
+  (substitution-preserves-typing-x Γ x U v t₃ T       Ht₃ Hv)
+ -}
